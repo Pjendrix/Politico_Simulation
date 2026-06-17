@@ -1,0 +1,127 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- REUSABLE SECURITY UTILITIES ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- DATA SHAPE CONSTRAINTS ---
+    function isValidCampaign(data) {
+      return data.userId == request.auth.uid 
+        && data.currentStage is string && data.currentStage.size() <= 128
+        && (data.gameVictory == null || data.gameVictory is bool)
+        && (data.gameStateJson == null || (data.gameStateJson is string && data.gameStateJson.size() <= 100000))
+        && (data.coalitionResultsJson == null || (data.coalitionResultsJson is string && data.coalitionResultsJson.size() <= 100000))
+        && (data.endingTyp == null || (data.endingTyp is string && data.endingTyp.size() <= 128))
+        && (data.encounteredEventIds == null || data.encounteredEventIds is list)
+        && (data.encounteredPodcastIds == null || data.encounteredPodcastIds is list)
+        && data.updatedAt == request.time;
+    }
+
+    function isValidLeaderboardEntry(data) {
+      return request.auth.token.firebase.get('sign_in_provider', '') != 'anonymous'
+        && data.userId == request.auth.uid
+        && data.partyZkratka is string && data.partyZkratka.size() <= 32
+        && data.partyName is string && data.partyName.size() <= 128
+        && data.partyBarva is string && data.partyBarva.size() <= 16
+        && data.preference is number && data.preference >= 0.0 && data.preference <= 100.0
+        && data.initialPreference is number && data.initialPreference >= 0.0 && data.initialPreference <= 100.0
+        && data.prefChange is number
+        && data.seats is int && data.seats >= 0 && data.seats <= 200
+        && data.isGovernment is bool
+        && (data.endingTyp == null || (data.endingTyp is string && data.endingTyp.size() <= 128))
+        && data.advisorName is string && data.advisorName.size() <= 128
+        && data.date is string && data.date.size() <= 32
+        && data.createdAt is timestamp && data.createdAt <= request.time
+        && (data.displayName == null || (data.displayName is string && data.displayName.size() <= 128))
+        && (data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 1024));
+    }
+
+    function isValidDailyEntry(data) {
+      return request.auth.token.firebase.get('sign_in_provider', '') != 'anonymous'
+        && data.userId == request.auth.uid
+        && data.partyZkratka is string && data.partyZkratka.size() <= 32
+        && data.partyBarva is string && data.partyBarva.size() <= 16
+        && data.poradceId is string && data.poradceId.size() <= 128
+        && data.preference is number && data.preference >= 0.0 && data.preference <= 100.0
+        && data.initialPreference is number && data.initialPreference >= 0.0 && data.initialPreference <= 100.0
+        && data.prefChange is number
+        && data.seats is int && data.seats >= 0 && data.seats <= 200
+        && (data.endingTyp == null || (data.endingTyp is string && data.endingTyp.size() <= 128))
+        && data.date is string && data.date.size() <= 32
+        && data.createdAt is timestamp && data.createdAt <= request.time
+        && (data.displayName == null || (data.displayName is string && data.displayName.size() <= 128))
+        && (data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 1024));
+    }
+
+    // --- RATE LIMIT KONSTANTY ---
+    // - leaderboardSubmit: min. 8 sekund mezi zápisy (jedna kampaň trvá řádově minuty, 8s je bezpečná rezerva)
+    // - dailySubmit: min. 8 sekund mezi zápisy
+    // - campaign autosave update: min. 3 sekundy mezi zápisy
+
+    // --- PATH DEFINITIONS ---
+    
+    // User campaign saves
+    match /users/{userId}/campaigns/{documentId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidId(documentId) && isValidCampaign(incoming());
+      allow update: if isOwner(userId) && isValidId(documentId) && isValidCampaign(incoming())
+        && (
+             !existing().keys().hasAny(['updatedAt'])
+             || request.time > existing().updatedAt + duration.value(3, 's')
+           );
+      allow delete: if isOwner(userId);
+    }
+
+    // Rate limits trackers
+    match /users/{userId}/rateLimits/{limitType} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId)
+        && isValidId(limitType)
+        && incoming().lastWriteAt == request.time
+        && (
+             resource == null
+             || !existing().keys().hasAny(['lastWriteAt'])
+             || request.time > existing().lastWriteAt + duration.value(8, 's')
+           );
+    }
+
+    // Public/global leaderboard submissions
+    match /leaderboard/{entryId} {
+      allow read, list: if true;
+      allow create: if isSignedIn() && isValidId(entryId) && isValidLeaderboardEntry(incoming());
+      allow update: if false; // entries are immutable to prevent cheat-updating highscores
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // Daily challenge leaderboard submissions
+    match /dailyLeaderboard/{date}/entries/{userId} {
+      allow read, list: if true;
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidDailyEntry(incoming());
+      allow update, delete: if false;
+    }
+  }
+}

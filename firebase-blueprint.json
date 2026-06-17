@@ -1,0 +1,137 @@
+{
+  "entities": {
+    "campaign": {
+      "title": "Campaign Save",
+      "description": "User's saved election campaign progress",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The Firebase Authentication UID of the running player"
+        },
+        "gameStateJson": {
+          "type": "string",
+          "description": "Serialized GameState JSON to bypass deeply nested limits safely"
+        },
+        "currentStage": {
+          "type": "string",
+          "description": "The current step in the political flow"
+        },
+        "gameVictory": {
+          "type": "boolean",
+          "description": "Whether the campaign resulted in government coalition victory"
+        },
+        "coalitionResultsJson": {
+          "type": "string",
+          "description": "Serialized CoalitionDetails JSON if available"
+        },
+        "endingTyp": {
+          "type": "string",
+          "description": "Ending categorization type description if set"
+        },
+        "encounteredEventIds": {
+          "type": "array",
+          "description": "List of categorical event IDs seen"
+        },
+        "encounteredPodcastIds": {
+          "type": "array",
+          "description": "List of podcast IDs seen"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server updatedAt timestamp"
+        }
+      },
+      "required": [
+        "userId",
+        "currentStage",
+        "updatedAt"
+      ]
+    },
+    "leaderboardEntry": {
+      "title": "Leaderboard Entry",
+      "description": "A completed campaign's statistics submitted to the global hall of fame",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the player"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User profile moniker or pseudonym"
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "Optional profile photo vector avatar or URL"
+        },
+        "partyZkratka": {
+          "type": "string",
+          "description": "Short code of user party"
+        },
+        "partyName": {
+          "type": "string",
+          "description": "Fully named party string"
+        },
+        "partyBarva": {
+          "type": "string",
+          "description": "HEX code representing the political color code"
+        },
+        "preference": {
+          "type": "number",
+          "description": "Terminal voting percentage percentage reached"
+        },
+        "initialPreference": {
+          "type": "number",
+          "description": "Voter pool percentage from which the campaign took off"
+        },
+        "prefChange": {
+          "type": "number",
+          "description": "Relative voter swing achieved in percentage points"
+        },
+        "seats": {
+          "type": "number",
+          "description": "How many seats were captured in the 200-member Chamber"
+        },
+        "isGovernment": {
+          "type": "boolean",
+          "description": "True if they forged or joined a supreme ruling coalition"
+        },
+        "endingTyp": {
+          "type": "string",
+          "description": "Specific ending type of the game (premier, vicepremier, koalicni_partner, opozice)"
+        },
+        "advisorName": {
+          "type": "string",
+          "description": "Chief campaign spin doctor name"
+        },
+        "date": {
+          "type": "string",
+          "description": "Locally formulated date string of victory"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server createdAt timestamp"
+        }
+      },
+      "required": [
+        "userId",
+        "partyZkratka",
+        "preference",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "users/{userId}/campaigns/active": {
+      "schema": "campaign",
+      "description": "The active campaign for a user mapped private per user"
+    },
+    "leaderboard/{entryId}": {
+      "schema": "leaderboardEntry",
+      "description": "The global competitive leaderboard archives"
+    }
+  }
+}
