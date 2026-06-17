@@ -53,6 +53,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 // --- Herní konstanty délky kampaně ---
 // Pokud se v budoucnu změní délka hry nebo frekvence debat/pollů, měň POUZE tady.
@@ -3581,6 +3582,7 @@ export default function App() {
       </footer>
     </div>
     <Analytics />
+    <SpeedInsights />
     </RngContext.Provider>
   );
 }
